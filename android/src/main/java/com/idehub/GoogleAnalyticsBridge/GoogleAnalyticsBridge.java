@@ -13,371 +13,249 @@ import com.google.android.gms.analytics.Tracker;
 import com.google.android.gms.analytics.ecommerce.Product;
 import com.google.android.gms.analytics.ecommerce.ProductAction;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class GoogleAnalyticsBridge extends ReactContextBaseJavaModule {
+        private final String _trackingId;
+        private final HashMap<String, Tracker> mTrackers
+            = new HashMap<String, Tracker>();
+        private final GA _ga;
 
-    public GoogleAnalyticsBridge(ReactApplicationContext reactContext, String trackingId) {
-        super(reactContext);
-        _trackingId = trackingId;
-    }
+        public GoogleAnalyticsBridge(ReactApplicationContext reactContext,
+                String trackingId) {
 
-    private final String _trackingId;
-
-    @Override
-    public String getName() {
-        return "GoogleAnalyticsBridge";
-    }
-
-    HashMap<String, Tracker> mTrackers = new HashMap<String, Tracker>();
-
-    synchronized Tracker getTracker(String trackerId) {
-       if (!mTrackers.containsKey(trackerId)) {
-           GoogleAnalytics analytics = GoogleAnalytics.getInstance(getReactApplicationContext());
-           analytics.setLocalDispatchPeriod(20);
-           Tracker t = analytics.newTracker(trackerId);
-           t.enableExceptionReporting(true);
-           mTrackers.put(trackerId, t);
-       }
-       return mTrackers.get(trackerId);
-    }
-
-    synchronized GoogleAnalytics getAnalyticsInstance() {
-      return GoogleAnalytics.getInstance(getReactApplicationContext());
-    }
-
-    @Override
-    public Map<String, Object> getConstants() {
-        final Map<String, Object> constants = new HashMap<>();
-        constants.put("nativeTrackerId", _trackingId);
-        return constants;
-    }
-
-    @ReactMethod
-    public void trackScreenView(String trackerId, String screenName){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            tracker.setScreenName(screenName);
-
-            tracker.send(new HitBuilders.ScreenViewBuilder().build());
+            super(reactContext);
+            _ga = new GA(reactContext);
+            _trackingId = trackingId;
         }
-    }
 
-    @ReactMethod
-    public void trackEvent(String trackerId, String category, String action, ReadableMap optionalValues){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            HitBuilders.EventBuilder hit = new HitBuilders.EventBuilder()
-                        .setCategory(category)
-                        .setAction(action);
-
-            if (optionalValues.hasKey("label"))
-            {
-                hit.setLabel(optionalValues.getString("label"));
-            }
-            if (optionalValues.hasKey("value"))
-            {
-                hit.setValue(optionalValues.getInt("value"));
-            }
-
-            tracker.send(hit.build());
+        @Override
+        public String getName() {
+            return "GoogleAnalyticsBridge";
         }
-    }
 
-    @ReactMethod
-    public void trackTiming(String trackerId, String category, Double value, ReadableMap optionalValues){
-        Tracker tracker = getTracker(trackerId);
 
-        if (tracker != null)
-        {
-            HitBuilders.TimingBuilder hit = new HitBuilders.TimingBuilder()
-                        .setCategory(category)
-                        .setValue(value.longValue());
-
-            if (optionalValues.hasKey("name"))
-            {
-                hit.setVariable(optionalValues.getString("name"));
-            }
-            if (optionalValues.hasKey("label"))
-            {
-                hit.setLabel(optionalValues.getString("label"));
-            }
-
-            tracker.send(hit.build());
+        synchronized Tracker getTracker(String trackerId) {
+             if (!mTrackers.containsKey(trackerId)) {
+                     GoogleAnalytics analytics = GoogleAnalytics.getInstance(getReactApplicationContext());
+                     analytics.setLocalDispatchPeriod(20);
+                     Tracker t = analytics.newTracker(trackerId);
+                     t.enableExceptionReporting(true);
+                     mTrackers.put(trackerId, t);
+             }
+             return mTrackers.get(trackerId);
         }
-    }
 
-    @ReactMethod
-    public void trackPurchaseEvent(String trackerId, ReadableMap product, ReadableMap transaction, String eventCategory, String eventAction){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null) {
-
-            HitBuilders.EventBuilder hit = new HitBuilders.EventBuilder()
-                   .addProduct(this.getPurchaseProduct(product))
-                   .setProductAction(this.getPurchaseTransaction(transaction))
-                   .setCategory(eventCategory)
-                   .setAction(eventAction);
-
-            tracker.send(hit.build());
+        synchronized GoogleAnalytics getAnalyticsInstance() {
+            return GoogleAnalytics.getInstance(getReactApplicationContext());
         }
-    }
 
-    @ReactMethod
-    public void trackMultiProductsPurchaseEvent(String trackerId, ReadableArray products, ReadableMap transaction, String eventCategory, String eventAction) {
-        Tracker tracker = getTracker(trackerId);
+        @Override
+        public Map<String, Object> getConstants() {
+                final Map<String, Object> constants = new HashMap<>();
+                constants.put("nativeTrackerId", _trackingId);
+                return constants;
+        }
 
-        if (tracker != null) {
+        @ReactMethod
+        public void trackScreenView(String trackerId, String screenName){
+            _ga.trackScreenView(trackerId, screenName);
+        }
 
-            HitBuilders.EventBuilder hit = new HitBuilders.EventBuilder()
-                   .setProductAction(this.getPurchaseTransaction(transaction))
-                   .setCategory(eventCategory)
-                   .setAction(eventAction);
+        @ReactMethod
+        public void trackEvent(String trackerId, String category, String action, ReadableMap optionalValues) {
 
-            for (int i = 0; i < products.size(); i++) {
-                ReadableMap product = products.getMap(i);
-                hit.addProduct(this.getPurchaseProduct(product));
+            Optional<String> label = optionalValues.hasKey("label") ?
+                Optional.ofNullable(optionalValues.getString("label")) : Optional.emptyString();
+
+            Optional<Integer> value = optionalValues.hasKey("value") ?
+                Optional.ofNullable(optionalValues.getInt("value")) : Optional.emptyInteger();
+
+            _ga.trackEvent(trackerId, category, action, label, value);
+        }
+
+        @ReactMethod
+        public void trackTiming(String trackerId, String category, Double value, ReadableMap optionalValues){
+
+            Optional<String> name = optionalValues.hasKey("name") ?
+                Optional.ofNullable(optionalValues.getString("name")) : Optional.emptyString();
+
+            Optional<String> label = optionalValues.hasKey("label") ?
+                Optional.ofNullable(optionalValues.getString("label")) : Optional.emptyString();
+
+            _ga.trackTiming(trackerId, category, value, name, label);
+        }
+
+        @ReactMethod
+        public void trackPurchaseEvent(String trackerId, ReadableMap productMap, ReadableMap transactionMap, String eventCategory, String eventAction){
+
+            Product product = getPurchaseProduct(productMap);
+            ProductAction transaction = getPurchaseTransaction(transactionMap);
+
+            _ga.trackPurchaseEvent(trackerId, product,
+                    transaction, eventCategory, eventAction);
+        }
+
+        @ReactMethod
+        public void trackMultiProductsPurchaseEvent(String trackerId, ReadableArray productArray, ReadableMap transactionMap, String eventCategory, String eventAction) {
+
+            ProductAction transaction = getPurchaseTransaction(transactionMap);
+            List<Product> productList = getPurchaseProducts(productArray);
+
+            _ga.trackMultiProductsPurchaseEvent(trackerId, productList, transaction,
+                    eventCategory, eventAction);
+        }
+
+        @ReactMethod
+        public void trackMultiProductsPurchaseEventWithCustomDimensionValues(String trackerId, ReadableArray productArray, ReadableMap transactionMap, String eventCategory, String eventAction, ReadableMap dimensionIndexValues) {
+
+            ProductAction transaction = getPurchaseTransaction(transactionMap);
+            List<Product> productList = getPurchaseProducts(productArray);
+            Map<Integer, String> dimensions = getDimensionIndices(dimensionIndexValues);
+
+            _ga.trackMultiProductsPurchaseEventWithCustomDimensionValues(
+                    trackerId, productList, transaction, eventCategory,
+                    eventAction, dimensions);
+        }
+
+        @ReactMethod
+        public void trackException(String trackerId, String error, Boolean fatal) {
+            _ga.trackException(trackerId, error, fatal);
+        }
+
+        @ReactMethod
+        public void setUser(String trackerId, String userId) {
+            _ga.setUser(trackerId, userId);
+        }
+
+        @ReactMethod
+        public void allowIDFA(String trackerId, Boolean enabled) {
+            _ga.allowAdvertisingIdCollection(trackerId, enabled);
+        }
+
+        @ReactMethod
+        public void trackSocialInteraction(String trackerId, String network,
+                String action, String targetUrl) {
+
+            _ga.trackSocialInteraction(trackerId, network, action, targetUrl);
+        }
+
+        @ReactMethod
+        public void trackScreenViewWithCustomDimensionValues(String trackerId, String screenName, ReadableMap dimensionIndexValues) {
+
+            _ga.trackScreenViewWithCustomDimensionValues(trackerId, screenName,
+                    getDimensionIndices(dimensionIndexValues));
+        }
+
+        @ReactMethod
+        public void trackEventWithCustomDimensionValues(String trackerId,
+                String category, String action, ReadableMap optionalValues,
+                ReadableMap dimensionIndexValues) {
+
+            Optional<String> label = optionalValues.hasKey("label") ?
+                Optional.ofNullable(optionalValues.getString("label")) : Optional.emptyString();
+
+            Optional<Integer> value = optionalValues.hasKey("value") ?
+                Optional.ofNullable(optionalValues.getInt("value")) : Optional.emptyInteger();
+
+            _ga.trackEventWithCustomDimensionValues(trackerId, category, action,
+                    label, value, getDimensionIndices(dimensionIndexValues));
+        }
+
+        @ReactMethod
+        public void setSamplingRate(String trackerId, Double sampleRate){
+            _ga.setSampleRate(trackerId, sampleRate);
+        }
+
+        @ReactMethod
+        public void setDryRun(Boolean enabled){
+            _ga.setDryRun(enabled);
+        }
+
+        @ReactMethod
+        public void setDispatchInterval(Integer intervalInSeconds){
+            _ga.setDispatchInterval(intervalInSeconds);
+        }
+
+        @ReactMethod
+        public void setTrackUncaughtExceptions(String trackerId, Boolean enabled){
+            _ga.setTrackExceptions(trackerId, enabled);
+        }
+
+
+        @ReactMethod
+        public void setAnonymizeIp(String trackerId, Boolean enabled){
+            _ga.setAnonymizeIp(trackerId, enabled);
+        }
+
+        @ReactMethod
+        public void setOptOut(Boolean enabled){
+            _ga.setOptOut(enabled);
+        }
+
+        @ReactMethod
+        public void setAppName(String trackerId, String appName){
+            _ga.setAppName(trackerId, appName);
+        }
+
+        @ReactMethod
+        public void setAppVersion(String trackerId, String appVersion){
+            _ga.setAppVersion(trackerId, appVersion);
+        }
+
+        private ProductAction getPurchaseTransaction(ReadableMap transaction) {
+                ProductAction productAction = new ProductAction(ProductAction.ACTION_PURCHASE)
+                     .setTransactionId(transaction.getString("id"))
+                     .setTransactionTax(transaction.getDouble("tax"))
+                     .setTransactionRevenue(transaction.getDouble("revenue"))
+                     .setTransactionShipping(transaction.getDouble("shipping"))
+                     .setTransactionCouponCode(transaction.getString("couponCode"))
+                     .setTransactionAffiliation(transaction.getString("affiliation"));
+
+                return productAction;
+        }
+
+        private List<Product> getPurchaseProducts(ReadableArray products) {
+            List<Product> productList = new ArrayList<Product>(products.size());
+
+            for (int index = 0; index < products.size(); index++) {
+                    ReadableMap productMap = products.getMap(index);
+                    productList.add(this.getPurchaseProduct(productMap));
             }
 
-            tracker.send(hit.build());
+            return productList;
         }
-    }
 
-    @ReactMethod
-    public void trackMultiProductsPurchaseEventWithCustomDimensionValues(String trackerId, ReadableArray products, ReadableMap transaction, String eventCategory, String eventAction, ReadableMap dimensionIndexValues) {
-        Tracker tracker = getTracker(trackerId);
+        private Product getPurchaseProduct(ReadableMap product) {
+                Product ecommerceProduct = new Product()
+                     .setId(product.getString("id"))
+                     .setName(product.getString("name"))
+                     .setBrand(product.getString("brand"))
+                     .setPrice(product.getDouble("price"))
+                     .setQuantity(product.getInt("quantity"))
+                     .setVariant(product.getString("variant"))
+                     .setCategory(product.getString("category"));
 
-        if (tracker != null) {
+                if(product.hasKey("couponCode")) {
+                     ecommerceProduct.setCouponCode(product.getString("couponCode"));
+                }
 
-            HitBuilders.EventBuilder hit = new HitBuilders.EventBuilder()
-                   .setProductAction(this.getPurchaseTransaction(transaction))
-                   .setCategory(eventCategory)
-                   .setAction(eventAction);
+                return ecommerceProduct;
+        }
 
-            for (int i = 0; i < products.size(); i++) {
-                ReadableMap product = products.getMap(i);
-                hit.addProduct(this.getPurchaseProduct(product));
-            }
+        private Map<Integer, String> getDimensionIndices(ReadableMap dimensionIndices) {
+            Map<Integer, String> dimensions = new HashMap<Integer, String>();
 
-            ReadableMapKeySetIterator iterator = dimensionIndexValues.keySetIterator();
+            ReadableMapKeySetIterator iterator = dimensionIndices.keySetIterator();
             while (iterator.hasNextKey()) {
                 String dimensionIndex = iterator.nextKey();
-                String dimensionValue = dimensionIndexValues.getString(dimensionIndex);
-                hit.setCustomDimension(Integer.parseInt(dimensionIndex), dimensionValue);
+                String dimensionValue = dimensionIndices.getString(dimensionIndex);
+                dimensions.put(Integer.parseInt(dimensionIndex), dimensionValue);
             }
 
-            tracker.send(hit.build());
+            return dimensions;
         }
-    }
-
-    private ProductAction getPurchaseTransaction(ReadableMap transaction) {
-        ProductAction productAction = new ProductAction(ProductAction.ACTION_PURCHASE)
-           .setTransactionId(transaction.getString("id"))
-           .setTransactionTax(transaction.getDouble("tax"))
-           .setTransactionRevenue(transaction.getDouble("revenue"))
-           .setTransactionShipping(transaction.getDouble("shipping"))
-           .setTransactionCouponCode(transaction.getString("couponCode"))
-           .setTransactionAffiliation(transaction.getString("affiliation"));
-
-        return productAction;
-    }
-
-    private Product getPurchaseProduct(ReadableMap product) {
-        Product ecommerceProduct = new Product()
-           .setId(product.getString("id"))
-           .setName(product.getString("name"))
-           .setBrand(product.getString("brand"))
-           .setPrice(product.getDouble("price"))
-           .setQuantity(product.getInt("quantity"))
-           .setVariant(product.getString("variant"))
-           .setCategory(product.getString("category"));
-
-        if(product.hasKey("couponCode")) {
-           ecommerceProduct.setCouponCode(product.getString("couponCode"));
-        }
-
-        return ecommerceProduct;
-    }
-
-    @ReactMethod
-    public void trackException(String trackerId, String error, Boolean fatal)
-    {
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null) {
-            tracker.send(new HitBuilders.ExceptionBuilder()
-                    .setDescription(error)
-                    .setFatal(fatal)
-                    .build());
-        }
-    }
-
-    @ReactMethod
-    public void setUser(String trackerId, String userId)
-    {
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null) {
-            tracker.set("&uid", userId);
-        }
-    }
-
-    @ReactMethod
-    public void allowIDFA(String trackerId, Boolean enabled)
-    {
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null) {
-            tracker.enableAdvertisingIdCollection(enabled);
-        }
-    }
-
-    @ReactMethod
-    public void trackSocialInteraction(String trackerId, String network, String action, String targetUrl)
-    {
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null) {
-            tracker.send(new HitBuilders.SocialBuilder()
-                    .setNetwork(network)
-                    .setAction(action)
-                    .setTarget(targetUrl)
-                    .build());
-        }
-    }
-
-    @ReactMethod
-    public void trackScreenViewWithCustomDimensionValues(String trackerId, String screenName, ReadableMap dimensionIndexValues)
-    {
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            tracker.setScreenName(screenName);
-            HitBuilders.ScreenViewBuilder screenBuilder = new HitBuilders.ScreenViewBuilder();
-            ReadableMapKeySetIterator iterator = dimensionIndexValues.keySetIterator();
-            while (iterator.hasNextKey()) {
-                String dimensionIndex = iterator.nextKey();
-                String dimensionValue = dimensionIndexValues.getString(dimensionIndex);
-                screenBuilder.setCustomDimension(Integer.parseInt(dimensionIndex), dimensionValue);
-            }
-            tracker.send(screenBuilder.build());
-        }
-    }
-
-    @ReactMethod
-    public void trackEventWithCustomDimensionValues(String trackerId, String category, String action, ReadableMap optionalValues, ReadableMap dimensionIndexValues)
-    {
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            HitBuilders.EventBuilder hit = new HitBuilders.EventBuilder()
-                        .setCategory(category)
-                        .setAction(action);
-                        
-            if (optionalValues.hasKey("label"))
-            {
-                hit.setLabel(optionalValues.getString("label"));
-            }
-            if (optionalValues.hasKey("value"))
-            {
-                hit.setValue(optionalValues.getInt("value"));
-            }
-
-            ReadableMapKeySetIterator iterator = dimensionIndexValues.keySetIterator();
-            while (iterator.hasNextKey()) {
-                String dimensionIndex = iterator.nextKey();
-                String dimensionValue = dimensionIndexValues.getString(dimensionIndex);
-                hit.setCustomDimension(Integer.parseInt(dimensionIndex), dimensionValue);
-            }
-
-            tracker.send(hit.build());
-        }
-    }
-
-    @ReactMethod
-    public void setSamplingRate(String trackerId, Double sampleRate){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            tracker.setSampleRate(sampleRate);
-        }
-    }
-
-    @ReactMethod
-    public void setDryRun(Boolean enabled){
-        GoogleAnalytics analytics = getAnalyticsInstance();
-
-        if (analytics != null)
-        {
-            analytics.setDryRun(enabled);
-        }
-    }
-
-    @ReactMethod
-    public void setDispatchInterval(Integer intervalInSeconds){
-        GoogleAnalytics analytics = getAnalyticsInstance();
-
-        if (analytics != null)
-        {
-            analytics.setLocalDispatchPeriod(intervalInSeconds);
-        }
-    }
-
-    @ReactMethod
-    public void setTrackUncaughtExceptions(String trackerId, Boolean enabled){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            tracker.enableExceptionReporting(enabled);
-        }
-    }
-
-
-    @ReactMethod
-    public void setAnonymizeIp(String trackerId, Boolean enabled){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            tracker.setAnonymizeIp(enabled);
-        }
-    }
-
-    @ReactMethod
-    public void setOptOut(Boolean enabled){
-        GoogleAnalytics analytics = getAnalyticsInstance();
-
-        if (analytics != null)
-        {
-            analytics.setAppOptOut(enabled);
-        }
-    }
-
-    @ReactMethod
-    public void setAppName(String trackerId, String appName){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            tracker.setAppName(appName);
-        }
-    }
-    @ReactMethod
-    public void setAppVersion(String trackerId, String appVersion){
-        Tracker tracker = getTracker(trackerId);
-
-        if (tracker != null)
-        {
-            tracker.setAppVersion(appVersion);
-        }
-    }
 }
