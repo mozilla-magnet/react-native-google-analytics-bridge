@@ -20,8 +20,6 @@ import java.util.Map;
 
 public class GoogleAnalyticsBridge extends ReactContextBaseJavaModule {
         private final String _trackingId;
-        private final HashMap<String, Tracker> mTrackers
-            = new HashMap<String, Tracker>();
         private final GA _ga;
 
         public GoogleAnalyticsBridge(ReactApplicationContext reactContext,
@@ -35,18 +33,6 @@ public class GoogleAnalyticsBridge extends ReactContextBaseJavaModule {
         @Override
         public String getName() {
             return "GoogleAnalyticsBridge";
-        }
-
-
-        synchronized Tracker getTracker(String trackerId) {
-             if (!mTrackers.containsKey(trackerId)) {
-                     GoogleAnalytics analytics = GoogleAnalytics.getInstance(getReactApplicationContext());
-                     analytics.setLocalDispatchPeriod(20);
-                     Tracker t = analytics.newTracker(trackerId);
-                     t.enableExceptionReporting(true);
-                     mTrackers.put(trackerId, t);
-             }
-             return mTrackers.get(trackerId);
         }
 
         synchronized GoogleAnalytics getAnalyticsInstance() {

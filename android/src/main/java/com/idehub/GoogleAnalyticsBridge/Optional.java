@@ -6,7 +6,7 @@ import java.util.NoSuchElementException;
  * Minimal and backwards compatible Optional<T> type, not fully compatible with Java 8
  * version
  */
-class Optional<T> {
+public class Optional<T> {
 
     private final T _value;
 
